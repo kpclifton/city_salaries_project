@@ -1,0 +1,266 @@
+---
+title: "Baltimore City Salaries"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: column
+    vertical_layout: fill
+    source_code: embed
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+```{r global, include=FALSE}
+library(tidyr)
+library(dplyr)
+library(RColorBrewer)
+library(munsell)
+library(ggplot2)
+library(magrittr)
+library(plotly)
+library(scales)
+library(forecast)
+```
+Controls {.sidebar}
+======================
+
+```{r}
+
+selectInput("agency", label= ("Select an agency where to work:"),
+             choices = list("Police Department" = 99), selected = 99)
+
+selectInput("job_title", label= ("Select a job:"),
+             choices = list("ACCOUNTANT II", 
+                            "ANALYST/PROGRAMMER II", 
+                            "COMMUNITY SERVICE OFFICER",
+                            "COMPUTER OPERATOR IV",
+                            "CRIME RECORD TECHNICIAN",
+                            "OFFICE SUPERVISOR",
+                            "POLICE INFORMATION TECHNICIAN",
+                            "POLICE LIEUTENANT", 
+                            "POLICE OFFICER", 
+                            "POLICE REPORT REVIEWER", 
+                            "POLICE SERGEANT", 
+                            "SECRETARY III"
+                            ), selected = "POLICE SERGEANT")
+
+
+helpText("This app predicts salaries for employees of Baltimore City based on records of salaries for select job titles and agencies from 2012 to 2019.")
+
+helpText("The black line plots the previous trends for salaries based on the selected agency and job title. The forecast trend is displayed a blue line with the 80% and 95% prediction intervals as the dark and light purple shaded regions, respectively. ")
+
+```
+
+Time Series Plot of Salaries
+=======================================
+
+### {data-height=700}
+```{r}
+plotOutput("mygraph", width = "50%")
+pal <- brewer.pal(9,"Blues")
+
+## Read CSV files
+
+salaries2012<- read.csv('https://raw.githubusercontent.com/kpclifton/city_salaries_project/master/Baltimore_City_Employee_Salaries_FY2012edit.csv', colClasses=c(AgencyIDP1="character"), header=T, na.strings="")
+
+salaries2013<- read.csv('https://raw.githubusercontent.com/kpclifton/city_salaries_project/master/Baltimore_City_Employee_Salaries_FY2013edit.csv', colClasses=c(AgencyIDP1="character"), header=T, na.strings="")
+
+salaries2014<- read.csv('https://raw.githubusercontent.com/kpclifton/city_salaries_project/master/Baltimore_City_Employee_Salaries_FY2014edit.csv', colClasses=c(AgencyIDP1="character"), header=T, na.strings="")
+
+salaries2015<- read.csv('https://raw.githubusercontent.com/kpclifton/city_salaries_project/master/Baltimore_City_Employee_Salaries_FY2015edit.csv', colClasses=c(AgencyIDP1="character"), header=T, na.strings="")
+
+salaries2016<- read.csv('https://raw.githubusercontent.com/kpclifton/city_salaries_project/master/Baltimore_City_Employee_Salaries_FY2016edit.csv', colClasses=c(AgencyIDP1="character"), header=T, na.strings="")
+
+salaries2017<- read.csv('https://raw.githubusercontent.com/kpclifton/city_salaries_project/master/Baltimore_City_Employee_Salaries_FY2017edit.csv', colClasses=c(AgencyIDP1="character"), header=T, na.strings="")
+
+salaries2018<- read.csv('https://raw.githubusercontent.com/kpclifton/city_salaries_project/master/Baltimore_City_Employee_Salaries_FY2018edit.csv', colClasses=c(AgencyIDP1="character"), header=T, na.strings="")
+
+salaries2019<- read.csv('https://raw.githubusercontent.com/kpclifton/city_salaries_project/master/Baltimore_City_Employee_Salaries_FY2019edit.csv', colClasses=c(AgencyIDP1="character"), header=T, na.strings="")
+
+##Clean up data
+#remove job type which have unique formatting
+#remove rows where there is no Hire Date
+#remove rows where employee did no receive gross pay for the fiscal year
+#remove the CutOff column which was only necessary to calculate employment duration
+
+salaries2012clean <- salaries2012 %>%
+  filter(!JobTypeLetter %in% c("C","D","R","U", "W") & 
+           !is.na(HireDate) & GrossPay2012 != 0 &
+           AgencyIDP1 %in% c("64","99","75","65","30")) %>%
+  select(-CutOff2012)
+
+salaries2013clean <- salaries2013 %>%
+  filter(!JobTypeLetter %in% c("C","D","R","U", "W") & 
+           !is.na(HireDate) & GrossPay2013 != 0 &
+           AgencyIDP1 %in% c("64","99","75","65","30")) %>%
+  select(-CutOff2013)
+
+salaries2014clean <- salaries2014 %>%
+  filter(!JobTypeLetter %in% c("C","D","R","U", "W") & 
+           !is.na(HireDate) & GrossPay2014 != 0 &
+           AgencyIDP1 %in% c("64","99","75","65","30")) %>%
+  select(-CutOff2014)
+
+salaries2015clean <- salaries2015 %>%
+  filter(!JobTypeLetter %in% c("C","D","R","U", "W") & 
+           !is.na(HireDate) & GrossPay2015 != 0 &
+           AgencyIDP1 %in% c("64","99","75","65","30")) %>%
+  select(-CutOff2015)
+
+salaries2016clean <- salaries2016 %>%
+  filter(!JobTypeLetter %in% c("C","D","R","U", "W") & 
+           !is.na(HireDate) & GrossPay2016 != 0 &
+           AgencyIDP1 %in% c("64","99","75","65","30")) %>%
+  select(-CutOff2016)
+
+salaries2017clean <- salaries2017 %>%
+  filter(!JobTypeLetter %in% c("C","D","R","U", "W") & 
+           !is.na(HireDate) & GrossPay2017 != 0 &
+           AgencyIDP1 %in% c("64","99","75","65","30")) %>%
+  select(-CutOff2017)
+
+salaries2018clean <- salaries2018 %>%
+  filter(!JobTypeLetter %in% c("C","D","R","U", "W") & 
+           !is.na(HireDate) & GrossPay2018 != 0 &
+           AgencyIDP1 %in% c("64","99","75","65","30")) %>%
+  select(-CutOff2018)
+
+salaries2019clean <- salaries2019 %>%
+  filter(!JobTypeLetter %in% c("C","D","R","U", "W") & 
+           !is.na(HireDate) & GrossPay2019 != 0 &
+           AgencyIDP1 %in% c("64","99","75","65","30")) %>%
+  select(-CutOff2019) 
+
+## Join the dataframes for all fiscal years
+# only include rows where employee is employed each year from 2012 to 2019
+# only include rows where employee has the same job title for all years
+
+temp_data <- salaries2012clean %>% 
+  inner_join(salaries2013clean, by = "Name") %>%
+  mutate(samejob1213 = mapply(adist, as.character(JobTitle.x), as.character(JobTitle.y), ignore.case = TRUE)) %>%
+  filter(samejob1213 == 0)
+
+temp_data <- temp_data %>%
+  select(-ends_with("y"), -samejob1213) %>%
+  rename(JobTitle = JobTitle.x, JobTypeLetter = JobTypeLetter.x, 
+         AgencyIDP1 = AgencyIDP1.x, HireDate = HireDate.x) %>%
+  #join with 2014
+  inner_join(salaries2014clean, by = "Name") %>%
+  mutate(samejob1214 = mapply(adist, as.character(JobTitle.x), as.character(JobTitle.y), ignore.case = TRUE)) %>%
+  filter(samejob1214 == 0) %>%
+  #remove artifacts of join with 2014
+  select(-ends_with("y"), -samejob1214) %>%
+  rename(JobTitle = JobTitle.x, JobTypeLetter = JobTypeLetter.x, 
+         AgencyIDP1 = AgencyIDP1.x, HireDate = HireDate.x) %>%
+  #join with 2015
+  inner_join(salaries2015clean, by = "Name") %>%
+  mutate(samejob1215 = mapply(adist, as.character(JobTitle.x), as.character(JobTitle.y), ignore.case = TRUE)) %>%
+  filter(samejob1215 == 0) %>%
+  #remove artifacts of join with 2015
+  select(-ends_with("y"), -samejob1215) %>%
+  rename(JobTitle = JobTitle.x, JobTypeLetter = JobTypeLetter.x, 
+         AgencyIDP1 = AgencyIDP1.x, HireDate = HireDate.x) %>%
+  #join with 2016
+  inner_join(salaries2016clean, by = "Name") %>%
+  mutate(samejob1216 = mapply(adist, as.character(JobTitle.x), as.character(JobTitle.y), ignore.case = TRUE)) %>%
+  filter(samejob1216 == 0) %>%
+  #remove artifacts of join with 2016
+  select(-ends_with("y"), -samejob1216) %>%
+  rename(JobTitle = JobTitle.x, JobTypeLetter = JobTypeLetter.x, 
+         AgencyIDP1 = AgencyIDP1.x, HireDate = HireDate.x) %>%
+  #join with 2017
+  inner_join(salaries2017clean, by = "Name") %>%
+  mutate(samejob1217 = mapply(adist, as.character(JobTitle.x), as.character(JobTitle.y), ignore.case = TRUE)) %>%
+  filter(samejob1217 == 0) %>%
+  #remove artifacts of join with 2017
+  select(-ends_with("y"), -samejob1217) %>%
+  rename(JobTitle = JobTitle.x, JobTypeLetter = JobTypeLetter.x, 
+         AgencyIDP1 = AgencyIDP1.x, HireDate = HireDate.x) %>%
+  #join with 2018
+  inner_join(salaries2018clean, by = "Name") %>%
+  mutate(samejob1218 = mapply(adist, as.character(JobTitle.x), as.character(JobTitle.y), ignore.case = TRUE)) %>%
+  filter(samejob1218 == 0) %>%
+  #remove artifacts of join with 2018
+  select(-ends_with("y"), -samejob1218) %>%
+  rename(JobTitle = JobTitle.x, JobTypeLetter = JobTypeLetter.x, 
+         AgencyIDP1 = AgencyIDP1.x, HireDate = HireDate.x) %>%
+  #join with 2019
+  inner_join(salaries2019clean, by = "Name") %>%
+  mutate(samejob1219 = mapply(adist, as.character(JobTitle.x), as.character(JobTitle.y), ignore.case = TRUE)) %>%
+  filter(samejob1219 == 0) %>%
+  #remove artifacts of join with 2019
+  select(-ends_with("y"), -samejob1219) %>%
+  rename(JobTitle = JobTitle.x, JobTypeLetter = JobTypeLetter.x, 
+         AgencyIDP1 = AgencyIDP1.x, HireDate = HireDate.x)
+
+## Reshape the data frame to be longer so that Year is a variable
+
+tempdata_daysemployed <- temp_data %>%
+  select(Name, JobTitle, JobTypeLetter, AgencyIDP1, HireDate, `2012` = DaysEmployed2012, `2013` = DaysEmployed2013, `2014` = DaysEmployed2014, `2015` = DaysEmployed2015, `2016` = DaysEmployed2016, `2017` = DaysEmployed2017, `2018` = DaysEmployed2018, `2019` = DaysEmployed2019) %>% pivot_longer(c(`2012`, `2013`, `2014`, `2015`,`2016`, `2016`, `2017`, `2018`, `2019`), names_to = "Year", values_to = "DaysEmployed")
+
+tempdata_yearsemployed <- temp_data %>%
+  select(Name, JobTitle, JobTypeLetter, AgencyIDP1, HireDate, `2012` = YearsEmployed2012, `2013` = YearsEmployed2013, `2014` = YearsEmployed2014, `2015` = YearsEmployed2015, `2016` = YearsEmployed2016, `2017` = YearsEmployed2017, `2018` = YearsEmployed2018, `2019` = YearsEmployed2019) %>% pivot_longer(c(`2012`, `2013`, `2014`, `2015`,`2016`, `2016`, `2017`, `2018`, `2019`), names_to = "Year", values_to = "YearsEmployed")
+
+tempdata_annualsalary <- temp_data %>%
+  select(Name, JobTitle, JobTypeLetter, AgencyIDP1, HireDate, `2012` = AnnualSalary2012, `2013` = AnnualSalary2013, `2014` = AnnualSalary2014, `2015` = AnnualSalary2015, `2016` = AnnualSalary2016, `2017` = AnnualSalary2017, `2018` = AnnualSalary2018, `2019` = AnnualSalary2019) %>% pivot_longer(c(`2012`, `2013`, `2014`, `2015`,`2016`, `2016`, `2017`, `2018`, `2019`), names_to = "Year", values_to = "AnnualSalary")
+
+tempdata_grosspay <- temp_data %>%
+  select(Name, JobTitle, JobTypeLetter, AgencyIDP1, HireDate, `2012` = GrossPay2012, `2013` = GrossPay2013, `2014` = GrossPay2014, `2015` = GrossPay2015, `2016` = GrossPay2016, `2017` = GrossPay2017, `2018` = GrossPay2018, `2019` = GrossPay2019) %>% pivot_longer(c(`2012`, `2013`, `2014`, `2015`,`2016`, `2016`, `2017`, `2018`, `2019`), names_to = "Year", values_to = "GrossPay")
+
+temp_data$PercentPay2013 <- as.numeric(as.character(temp_data$PercentPay2013))
+temp_data$PercentPay2014 <- as.numeric(as.character(temp_data$PercentPay2013))
+temp_data$PercentPay2016 <- as.numeric(as.character(temp_data$PercentPay2013))
+
+tempdata_percentpay <- temp_data %>%
+  select(Name, JobTitle, JobTypeLetter, AgencyIDP1, HireDate, `2012` = PayPercent2012, `2013` = PercentPay2013, `2014` = PercentPay2014, `2015` = PercentPay2015, `2016` = PercentPay2016, `2017` = PercentPay2017, `2018` = PercentPay2018, `2019` = PercentPay2019) %>% pivot_longer(c(`2012`, `2013`, `2014`, `2015`,`2016`, `2016`, `2017`, `2018`, `2019`), names_to = "Year", values_to = "PercentPay")
+
+tidydata <- cbind(tempdata_daysemployed, YearsEmployed = tempdata_yearsemployed$YearsEmployed)
+tidydata <- cbind(tidydata, AnnualSalary = tempdata_annualsalary$AnnualSalary)
+tidydata <- cbind(tidydata, GrossPay = tempdata_grosspay$GrossPay)
+tidydata <- cbind(tidydata, PercentPay = tempdata_percentpay$PercentPay)
+
+ df2 <- tidydata %>%
+  filter(AgencyIDP1 == "99") %>%
+  group_by(JobTitle, Year) %>%
+    dplyr::summarize(count = n(), MeanAnnualSalary = mean(AnnualSalary))
+
+output$mygraph <- renderPlot({
+
+  df <- tidydata %>%
+  filter(AgencyIDP1 == input$agency) %>%
+  filter(JobTitle == input$job_title) %>%
+  group_by(JobTitle, Year) %>%
+    dplyr::summarize(count = n(), MeanAnnualSalary = mean(AnnualSalary))
+
+  q <- df %>%
+  ggplot(aes(x= Year, y= MeanAnnualSalary,
+         text = sprintf("Year: %s <br> Annual Salary: $ %s ", df$Year, df$MeanAnnualSalary))) +
+  geom_point() +
+    scale_y_continuous(labels = dollar) +
+    labs(title = sprintf("Annual Salary for a %s", input$job_title))
+
+  #ggplotly(q, tooltip = "text")
+  #input$job_title
+
+  salarytimeseries <- ts(df$MeanAnnualSalary, frequency = 1, start = 2012)
+  salaryforecasts <- HoltWinters(salarytimeseries, gamma=FALSE)
+  salaryforecasts2 <- forecast(salaryforecasts, h=4)
+  autoplot(salaryforecasts2) + scale_y_continuous(name="Salary", labels = dollar) +
+    scale_x_continuous(name="Year", breaks = seq(2012,2023,1)) +
+    labs(title = sprintf("Annual Salary for a %s", input$job_title))
+})
+```
+
+### About {data-height=100}
+```{r}
+p("Last Updated: May 15, 2020. Open source data from",
+     a("data.gov", 
+       href = "https://catalog.data.gov/dataset/baltimore-city-employee-salaries-fy2012-36e83"),
+  ". App code available on ",
+  a("Github."), href = "https://github.com/kpclifton/city_salaries_project"
+   )
+
+```
+
