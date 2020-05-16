@@ -258,9 +258,9 @@ output$mygraph <- renderPlot({
 p("Last Updated: May 15, 2020. Open source data from",
      a("data.gov", 
        href = "https://catalog.data.gov/dataset/baltimore-city-employee-salaries-fy2012-36e83"),
-  ". App code available on ",
-  a("Github."), href = "https://github.com/kpclifton/city_salaries_project"
-   )
+  ". App code available at ",
+  a("Github.", href = "https://github.com/kpclifton/city_salaries_project"
+   ))
 
 ```
 
