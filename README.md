@@ -2,6 +2,8 @@
 
 Link to ShinyApp: https://kpclifton.shinyapps.io/Baltimore_City_Salaries/
 
+Link to intro video: https://www.dropbox.com/s/h7qyuawd27f4s49/BaltimoreCitySalariesShinyApp.mov?dl=0
+
 ## DESCRIPTION
 
 This app predicts salaries for employees of Baltimore City based on records from 2012 to 2019 of salaries for select job titles and agencies. 
